@@ -207,7 +207,7 @@ thrTauRatio = 1.15
 
 fig3, ax3 = plt.subplots()
 ax3.scatter(maxTau,maxInt,s=20, color = classColorNP[myClass])
-ax3.scatter(medTau,medInt, s= 40, color = 'white')
+ax3.scatter(medTau,medInt, s= 40, color = 'yellow')
 ax3.hlines(medInt*thrInt, np.min(maxTau),np.max(maxTau), linestyles= ':')
 ax3.vlines(medTau*thrTau, np.min(maxInt),np.max(maxInt),linestyles= ':')
 ax3.set_title('Classification criteria  Melanin / Lipofuscin')

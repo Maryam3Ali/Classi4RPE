@@ -52,6 +52,10 @@ tauScaled = (tau-50)/1000
 _intTauImage = np.array((tauScaled,np.ones_like(image),image/np.max(image)))
 intTauImage = np.swapaxes(np.swapaxes(hsv2rgb(_intTauImage, channel_axis = 0),0,2),0,1)
 
+# Intensity image for low tau
+_factor = np.zeros_like(image)
+_factor[(tau>0)*(tau<250)]= 1
+lowTauImage = image.astype(float)*_factor
 
 #%% show original data
 
@@ -60,14 +64,16 @@ intTauImage = np.swapaxes(np.swapaxes(hsv2rgb(_intTauImage, channel_axis = 0),0,
 
 viewer = napari.Viewer()
 
-#viewer.add_image(image)
+viewer.add_image(image, name='intensity')
+viewer.add_image(lowTauImage, name='lowtauIntensity')
+
 #viewer.add_labels(givenLabel, colormap=glas)
 #viewer.add_image(tau)
 viewer.add_image(intTauImage, rgb=True)
 viewer.add_labels(classImage,colormap=myColorMap)
 
-
 #%% global threshold of the fluorescence signal
+
 from skimage import data, restoration, util
 from skimage.filters import threshold_otsu
 import skimage as ski
@@ -75,12 +81,42 @@ from skimage.filters import sobel
 
 
 thresh = ski.filters.threshold_otsu(image)
+#binary = lowTauImage > thresh
+#add extra darker area in necessary
+_binary = image > thresh*0.5
+
+thresh = ski.filters.threshold_otsu(lowTauImage)
+#binary = lowTauImage > thresh
+#add extra darker area in necessary
+_binaryLT = lowTauImage > thresh*0.5
+
+binary = (_binary | _binaryLT)
+
+viewer.add_image(binary)
+
+#%% local threshold of the fluorescence signal
+'''
+from skimage.morphology import binary_erosion, binary_closing, binary_dilation
+from skimage.filters import threshold_local
+from scipy import ndimage as ndi
+
+block_size = 31
+thresh = threshold_local(image, block_size, offset=0)
 binary = image > thresh
+viewer.add_image(binary, name='local_threshold')
 
-# add extra darker area in necessary
-#binary = image > thresh*0.5
+distance = ndi.distance_transform_edt(binary)
+binary[distance < 2] = 0
 
-#viewer.add_image(binary)
+#binary = binary_erosion(binary, footprint= np.ones((3, 3)))
+
+
+
+binary = binary_dilation(binary, footprint= np.ones((3, 3)))
+
+
+viewer.add_image(binary)
+'''
 
 #%% blob detection
 from skimage import data

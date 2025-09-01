@@ -66,10 +66,10 @@ lowTauImage = image.astype(float)*_factor
 viewer = napari.Viewer()
 
 viewer.add_image(image, name='intensity')
-viewer.add_image(lowTauImage, name='lowtauIntensity')
+#viewer.add_image(lowTauImage, name='lowtauIntensity')
 
 #viewer.add_labels(givenLabel, colormap=glas)
-#viewer.add_image(tau)
+viewer.add_image(tau, name='tau')
 viewer.add_image(intTauImage, rgb=True)
 viewer.add_labels(classImage,colormap=myColorMap)
 
@@ -86,13 +86,14 @@ thresh = ski.filters.threshold_otsu(image)
 #add extra darker area in necessary
 _binary = image > thresh*0.5
 
-thresh = ski.filters.threshold_otsu(lowTauImage)
+
+#thresh = ski.filters.threshold_otsu(lowTauImage)
 #binary = lowTauImage > thresh
 #add extra darker area in necessary
-_binaryLT = lowTauImage > thresh*0.5
+#_binaryLT = lowTauImage > thresh*0.5
 
-binary = (_binary | _binaryLT)
-
+#binary = (_binary | _binaryLT)
+binary = _binary
 viewer.add_image(binary)
 
 #%% show 2D histogram tau x intensity
@@ -102,7 +103,7 @@ from scipy.stats import binned_statistic_2d
 sel = (tau<50) | (tau>1000)
 _tau = np.copy(tau)
 _tau[np.isnan(_tau)] = 0
-_tau[sel] = 50
+_tau[sel] = 10
 _tau = _tau.flatten()
 _image = np.copy(image)
 _image = _image.flatten()
@@ -122,7 +123,7 @@ _image = _image.flatten()
 H, xEdge, yEdge, binnumber = binned_statistic_2d(
   _tau,_image, None, bins=200, range = [[50,1000],[0, np.max(_image)]],statistic='count',expand_binnumbers=True)
 H = H.T
-
+#%%
 
 fig3, ax3 = plt.subplots()
 ax3.pcolormesh(xEdge, yEdge, H, cmap='rainbow')
@@ -134,24 +135,31 @@ ax3.set_xlabel('tau / ns ')
 #%% napari histogram and select area
 
 viewer2 = napari.Viewer()
-viewer2.add_image(H, name='2D-histogram')
+viewer2.add_image(H, name='2D-histogram', colormap='hsv')
 viewer2.add_shapes(name= 'area')
 
+#%% compute K-mean clustering
+
+from sklearn.cluster import KMeans
+from sklearn.metrics.pairwise import pairwise_distances_argmin
+
+n_clusters = 4 
+k_means = KMeans(init="k-means++", n_clusters=n_clusters, n_init='auto')
+
+vx, vy  = np.meshgrid(np.arange(H.shape[0]),np.arange(H.shape[1]))
+
+k_means.fit(H)
+
+k_means_cluster_centers = k_means.cluster_centers_
+k_means_labels = pairwise_distances_argmin(H, k_means_cluster_centers)
+
+
+
 #%% show the selected area
-
-#xv, yv = np.meshgrid(np.arange(200),np.arange(200))
-#viewer2.add_image(xv, name='xIdx')
-#viewer2.add_image(yv, name='yIdx')
-
 _label = viewer2.layers['area'].to_labels(H.shape)
 viewer2.add_labels(_label)
-
 shapeIdx = binnumber.reshape((2,*image.shape))
-
-
-#%%
-
-idxInImage = _label[shapeIdx[0,...]-1,shapeIdx[1,...]-1]
+idxInImage = _label[shapeIdx[1,...]-1,shapeIdx[0,...]-1]
 viewer.add_labels(idxInImage)
 
 #%% local threshold of the fluorescence signal

@@ -1,4 +1,5 @@
-''' script to test clasification'''
+''' 
+set of functions to perform classification of granules (M,L, ML) in flim image'''
 #%%
 import numpy as np
 import napari
@@ -32,9 +33,8 @@ class GrainId:
             'M': 2,
             'ML':3,
             'NON':4}
-
-classColorNP = np.array(['white', 'green','blue','red','white'])
-myColorMap = {1:[0,1,0],2:[0,0,1],3:[1,0,0], 4:[1,1,1]}
+    colorMPL = np.array(['red', 'green','blue','white'])
+    colorNapari = {1:[1,0,0],2:[0,1,0],3:[0,0,1], 4:[1,1,1]}
 
 
 
@@ -56,10 +56,12 @@ def loadClassification(ffolder, classFile, columnName= 'classification_Hala', sh
     gPos = np.vstack((_sheet['X'].to_numpy(),_sheet['Y'].to_numpy())).T.astype(int)
 
     _gClass = _sheet[columnName].to_list()
-    gClass = np.array([GrainId.name[str.upper(ii)] for ii in _gClass])
+    gClass = np.array([GrainId.name[str.upper(ii.replace(" ", ""))] for ii in _gClass])
 
     classImage = np.zeros_like(image)
     classImage[gPos[:,-1],gPos[:,-2]] = gClass
+    #classImage[gPos[:,-2],gPos[:,-1]] = gClass
+
 
     return classImage
 
@@ -107,16 +109,19 @@ def getMask(image, extra_factor=1, minSize=3):
 
     return binary
 
-def bandPassFilter(tau,tauRange, sigma= 3):
+def getMaskOnTau(tau,tauRange, sigma= 3):
+    ''' create mask from tau. apply smooth band pass filter
+     return np.array of size tau, values from 0 to 1  '''
     fact1 = (erf((tau-tauRange[0])/sigma)+1)/2
     fact2 = (erf((tauRange[1]-tau)/sigma)+1)/2
     return fact1*fact2
 
 def getTauRangeImage(image,tau,tauRange=[20,200], sigma=3):
     # get intensity image for certain tau range
-    return image*bandPassFilter(tau,tauRange)
+    return image*getMaskOnTau(tau,tauRange)
 
 def showSelectedArea(H, binNumber, intTauImage):
+    ''' create two interactive napari viewer showing selected area of histogram in image'''
 
     def updateImage():
         print('image updated')
@@ -140,7 +145,10 @@ def showSelectedArea(H, binNumber, intTauImage):
     viewer2.layers['area'].events.data.connect(updateImage)
 
 
-def getGranule(image,binary,max_sigma=5, min_sigma=2, overlap=0.5, threshold=0.1,labelOffset=0):
+def getGranule(image,binary,max_sigma=5, min_sigma=2, 
+               overlap=0.5, threshold=0.1,labelOffset=0, extraExpansion=0):
+    ''' get labelled mask of the granule
+    assumed granules are spherical mit min max radius'''
     # get position of granule and its size
     blobs_log = blob_log(image*binary, 
                          max_sigma=max_sigma, 
@@ -155,9 +163,9 @@ def getGranule(image,binary,max_sigma=5, min_sigma=2, overlap=0.5, threshold=0.1
         labels_data[rr, cc] = ii+1 + labelOffset  
 
     # extra expand the label by one
-    expanded = expand_labels(labels_data, distance=1).astype(int)
+    labelImage = expand_labels(labels_data, distance=extraExpansion).astype(int)
 
-    return expanded, nBlob
+    return labelImage, nBlob
 
 def projectGroundTrueToLabels(classImage,labelImage):
     ''' project ground true classes to the labels'''
@@ -212,12 +220,7 @@ def getProfiles(image,tau,expanded, nPoly=2, showData= False, myClass=None):
 
 
         if showData:
-            if myClass is None:
-                myClass = np.ones(nBlob)
-            ax1.scatter(disIdx.ravel(),intIdx.ravel(),color = classColorNP[myClass[ii]])
-            ax1.plot(radius,intFit[ii,:],color = classColorNP[myClass[ii]])
-            ax2.scatter(disIdx.ravel(),tauIdx.ravel(),color = classColorNP[myClass[ii]])
-            ax2.plot(radius,tauFit[ii,:], color = classColorNP[myClass[ii]])
+            ax2.plot(radius,tauFit[ii,:], color = GrainId.colorMPL[myClass[ii]-1])
 
     return radius, intFit, tauFit
 
@@ -255,7 +258,7 @@ intTauImage = getTauIntensityImage(image,tau)
 viewer = napari.Viewer()
 viewer.add_image(image, name='intensity')
 viewer.add_image(intTauImage, rgb=True)
-viewer.add_labels(classImage,colormap=myColorMap)
+viewer.add_labels(classImage,colormap=GrainId.colorNapari)
 
 #%% show 2D histogram tau x intensity
 
@@ -284,9 +287,9 @@ viewer.add_labels(melBinary*2, name= 'mel mask')
 
 #%% detect objects
 #M
-melLabel, _nBlob1 = getGranule(melImage,melBinary,min_sigma=2, max_sigma=4)
+melLabel, _nBlob1 = getGranule(melImage,melBinary,min_sigma=2, max_sigma=4, extraExpansion=2)
 #L
-lipLabel, _nBlob2 = getGranule(lipImage,lipBinary,min_sigma=2, max_sigma=4)
+lipLabel, _nBlob2 = getGranule(lipImage,lipBinary,min_sigma=3, max_sigma=5)
 
 viewer.add_labels(melLabel)
 viewer.add_labels(lipLabel)
@@ -298,20 +301,20 @@ lipGTImage, lipGTClass = projectGroundTrueToLabels(classImage, lipLabel)
 
 GTImage = np.max(np.array([melGTImage, lipGTImage]), axis=0)
 
-viewer.add_labels(GTImage, colormap=myColorMap)
+viewer.add_labels(GTImage, colormap=GrainId.colorNapari)
 
 
 #%% get M granule Profiles
 
 radius, intFit, tauFit = getProfiles(image, tau,melLabel, nPoly=2)
 
-# plot the profiles
-fig1, ax1 = plt.subplots()
-for ii,_color in enumerate(classColorNP):
-    ax1.plot(radius,tauFit[melGTClass==ii,:].T,color=_color)
-ax1.set_title('tau profile')
-ax1.set_ylabel('tau /ns')
-ax1.set_xlabel('radius ')
+fig, ax = plt.subplots()
+
+for ii,_color in enumerate(GrainId.colorMPL):
+    ax.plot(radius,tauFit[melGTClass==ii,:].T,color=_color)
+    ax.set_title('tau profile')
+    ax.set_ylabel('tau /ns')
+    ax.set_xlabel('radius ')
 
 
 # %% plot parameters according the profile of M granule
@@ -327,13 +330,14 @@ thrTau = 0.8
 thrInt = 0.75
 thrTauRatio = 1.15
 
-fig3, ax3 = plt.subplots()
-ax3.scatter(ratioTau,ratioInt,s=20, color = classColorNP[melGTClass])
-ax3.vlines(thrTauRatio, np.min(ratioInt),np.max(ratioInt),linestyles= ':')
-ax3.set_title('Classification criteria MelanoLipofuscin')
-ax3.set_ylabel('Int_centre / Int_max ')
-ax3.set_xlabel('Tau_edge / Tau_centre ')
-ax3.annotate('ML', xy= (thrTauRatio,1))
+fig, ax = plt.subplots()
+
+ax.scatter(ratioTau,ratioInt,s=20, color = GrainId.colorMPL[melGTClass-1])
+ax.vlines(thrTauRatio, np.min(ratioInt),np.max(ratioInt),linestyles= ':')
+ax.set_title('Classification criteria MelanoLipofuscin')
+ax.set_ylabel('Int_centre / Int_max ')
+ax.set_xlabel('Tau_edge / Tau_centre ')
+ax.annotate('ML', xy= (thrTauRatio,1))
 
 #%% according the criteria classify ML clusters from M
 melFitClass = separateMLfromM(tauFit, thrTauRatio=thrTauRatio)
@@ -343,12 +347,10 @@ melFitClass = separateMLfromM(tauFit, thrTauRatio=thrTauRatio)
 melFitImage = myClassToImage(melFitClass,melLabel)
 lipFitImage = (lipLabel>0)*GrainId.name['L']
 
+# add L M and ML together in one image
 allFitImage = np.max(np.array([melFitImage, lipFitImage]), axis=0)
 
-viewer.add_labels(allFitImage, colormap=myColorMap)
-
-# set everything to M
-#viewer.add_labels((expanded2>0), colormap=myColorMap)
+viewer.add_labels(allFitImage, colormap=GrainId.colorNapari)
 
 
 # %%

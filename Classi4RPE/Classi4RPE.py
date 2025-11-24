@@ -1,3 +1,5 @@
+
+
 '''Classi4RPE is a computational program to segment and classify
  the granules of Retinal Pigment Epithelium cells RPE
  
@@ -17,7 +19,7 @@
 
 #%% Imports
 
-
+from datetime import date, time
 import pandas as pd
 from tkinter import filedialog
 import numpy as np
@@ -66,7 +68,7 @@ columnName = 'classification'
 
 #%% Reading the data
 
-tau1, tau2, image, sdt_d = Import_data(file_list)
+tau1, tau2, image, sdt_d, data_name = Import_data(file_list)
 
 
 
@@ -86,11 +88,11 @@ viewer.add_labels(classImage,colormap = GrainId.colorNapari)
 
 H, xEdge, yEdge, binNumber = getTauIntensityHistogram(image,tau2)
 
-fig3, ax3 = plt.subplots()
-ax3.pcolormesh(xEdge, yEdge, H, cmap='rainbow')
-ax3.set_title('Tau Intensity pixels')
-ax3.set_ylabel('intensity /a.u.')
-ax3.set_xlabel('tau / ns ')
+#fig3, ax3 = plt.subplots()
+#ax3.pcolormesh(xEdge, yEdge, H, cmap='rainbow')
+#ax3.set_title('Tau Intensity pixels')
+#ax3.set_ylabel('intensity /a.u.')
+#ax3.set_xlabel('tau / ns ')
 
 #%% Interactive visualization of selected area in the histogram
 
@@ -165,13 +167,13 @@ viewer.add_labels(GTImage, colormap=GrainId.colorNapari)
 
 radius, intFit, tauFit = getProfiles(image, tau,melLabel, nPoly=2)
 
-fig, ax = plt.subplots()
+#fig, ax = plt.subplots()
 
-for ii,_color in enumerate(GrainId.colorMPL):
-    ax.plot(radius,tauFit[M_class==ii+1,:].T)
-    ax.set_title('tau profile')
-    ax.set_ylabel('tau /ps')
-    ax.set_xlabel('radius ')
+#for ii,_color in enumerate(GrainId.colorMPL):
+#    ax.plot(radius,tauFit[M_class==ii+1,:].T)
+#    ax.set_title('tau profile')
+#    ax.set_ylabel('tau /ps')
+#    ax.set_xlabel('radius ')
 
 
 #%% Plot values of tau & intensity ratios for each segment
@@ -188,14 +190,14 @@ ratioTau = tauFit[:,-1]/tauFit[:,0]
 thrTauRatio = 1.15
 
 
-fig, ax = plt.subplots()
+#fig, ax = plt.subplots()
 
-ax.scatter(ratioTau,ratioInt,s=20, color = GrainId.colorMPL[M_class-2])
-ax.vlines(thrTauRatio, np.min(ratioInt),np.max(ratioInt),linestyles= ':')
-ax.set_title('Classification criteria MelanoLipofuscin')
-ax.set_ylabel('Int_centre / Int_max ')
-ax.set_xlabel('Tau_edge / Tau_centre ')
-ax.annotate('ML', xy= (thrTauRatio,1))
+#ax.scatter(ratioTau,ratioInt,s=20, color = GrainId.colorMPL[M_class-2])
+#ax.vlines(thrTauRatio, np.min(ratioInt),np.max(ratioInt),linestyles= ':')
+#ax.set_title('Classification criteria MelanoLipofuscin')
+#ax.set_ylabel('Int_centre / Int_max ')
+#ax.set_xlabel('Tau_edge / Tau_centre ')
+#ax.annotate('ML', xy= (thrTauRatio,1))
 
 #%% according the criteria classify ML clusters from M
 melFitClass = separateMLfromM(tauFit, thrTauRatio=thrTauRatio)
@@ -221,21 +223,71 @@ borders = borders.astype(int)
 viewer.add_labels(borders_M, name='M_Borders', colormap = {1:"white"})  
 viewer.add_labels(borders_L, name='L_Borders', colormap = {1:"white"})  
  
+        
+        
+#%% Finetuning & manual modifications on the classification
+#By clicking on the sgmented image then a => L, q => M, j => ML
 
-# %%
-napari.run()
 
-plt.show()
+segments = viewer.add_labels(Overview_map, name = "segments")
+classi_click = viewer.add_labels(np.zeros_like(Overview_map), name="Manual modification")
 
+selected_labels = set()
+last_clicked_label = None
+
+ML_tuned = []
+L_tuned = []
+M_tuned = []
+
+
+segments.mouse_drag_callbacks.append(tune_click)
+
+@viewer.bind_key('a', overwrite = True)
+def assign_Lipo(viewer2):
+    if last_clicked_label:
+        L_tuned.append(last_clicked_label) 
+        print(f"Label {last_clicked_label} assigned to L")
+    else:
+        print("Click a label first.")
+
+@viewer.bind_key('q', overwrite = True)
+def assign_M(viewer2):
+    if last_clicked_label:
+        M_tuned.append(last_clicked_label) 
+        print(f"Label {last_clicked_label} assigned to M")
+    else:
+        print("Click a label first.")
+        
+@viewer.bind_key('j', overwrite = True)
+def assign_ML(viewer2):
+    if last_clicked_label:
+        ML_tuned.append(last_clicked_label) 
+        print(f"Label {last_clicked_label} assigned to ML")
+    else:
+        print("Click a label first.")
+
+
+
+
+
+
+#%% Assign new modified classification and plot the modified classification
+
+Tuned_classImg = allFitImage.copy()
+
+
+Tuned_classImg[np.isin(Overview_map, L_tuned)] = 1
+Tuned_classImg[np.isin(Overview_map, M_tuned)] = 2
+Tuned_classImg[np.isin(Overview_map, ML_tuned)] = 3
+
+
+
+
+viewer.add_labels(Tuned_classImg, colormap=GrainId.colorNapari, name = "Tuned Classification Image")
 
 
 #%%
 
-#segmented labels
-#plt.figure()
-#plt.imshow(label2rgb(Overview_map))
-#plt.xticks([])
-#plt.yticks([])
 
 
 labels = np.unique(Overview_map)
@@ -243,6 +295,12 @@ labels = np.unique(Overview_map)
 
 class_predictions = {lbl: np.unique(allFitImage[Overview_map == lbl])[0] for lbl in labels}
 predictions = np.array([class_predictions[lbl] for lbl in sorted(class_predictions)])[1:]
+
+class_predictions_tuned = {lbl: np.unique(Tuned_classImg[Overview_map == lbl])[0] for lbl in labels}
+tuned_predictions = np.array([class_predictions_tuned[lbl] for lbl in sorted(class_predictions_tuned)])[1:]
+
+
+
 
 #%%Sensitivity & Specificity
 
@@ -331,7 +389,7 @@ photons2 = np.array(no_photons2)
 
 seg_labeled = np.arange(1, (Overview_map.max()+1))
 empty = np.zeros((seg_labeled.shape))
-dataID = np.full((seg_labeled.shape), ["2020009R_59_960nm_100fr_3Pro_03_01"])
+dataID = np.full((seg_labeled.shape), [data_name])
 
 Export_results = {"Data ID":dataID, "segment":seg_labeled, "Class [L=1, M=2, ML=3]":predictions,
                   "X":coord[:, 1], "Y":coord[:, 0],
@@ -339,6 +397,17 @@ Export_results = {"Data ID":dataID, "segment":seg_labeled, "Class [L=1, M=2, ML=
                   "no. of pixels":no_pixels, "no. of photons SSC":photons1, "no. of photons LSC":photons2, 
                   "Peak Emmision Wavelength":empty}
 Export = pd.DataFrame(Export_results)
-    
-Export.to_excel("Results2.xlsx", index = False)
+
+Export.to_excel("Results_"+ str(data_name) + ".xlsx", index = False)
+
+# Tuned data
+
+Export_results_tuned = {"Data ID":dataID, "segment":seg_labeled, "Class [L=1, M=2, ML=3]":tuned_predictions,
+                  "X":coord[:, 1], "Y":coord[:, 0],
+                  "mean_tau_Ch1":meanT1, "mean_tau_Ch2":meanT2,
+                  "no. of pixels":no_pixels, "no. of photons SSC":photons1, "no. of photons LSC":photons2, 
+                  "Peak Emmision Wavelength":empty}
+Export_t = pd.DataFrame(Export_results_tuned)
+
+Export_t.to_excel("Modified Results_"+ str(data_name) + ".xlsx", index = False)
 

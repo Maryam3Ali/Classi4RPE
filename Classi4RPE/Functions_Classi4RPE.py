@@ -1,5 +1,7 @@
 ''' 
-set of functions to perform classification of granules (M,L, ML) in flim image'''
+Functions used for Classi4RPE
+'''
+
 #%%
 import numpy as np
 import napari
@@ -7,7 +9,8 @@ import matplotlib.pyplot as plt
 import tifffile
 import pandas as pd
 from sdtfile import SdtFile
-
+import os
+from pathlib import Path
 #import glasbey
 from skimage.color import hsv2rgb, rgb2hsv
 from scipy.stats import binned_statistic_2d
@@ -39,52 +42,18 @@ class GrainId:
     colorMPL = np.array(['red', 'green','blue','white'])
     colorNapari = {1:[1,0,0],2:[0,1,0],3:[0,0,1], 4:[1,1,1]}
 
-def read_asc(channel_data):
-    data = []
-    for j in range(6):
-        with open(channel_data[j]) as f:
-            ch_data = ([line.strip() for line in f if line.strip()])
-            f_asc = np.array([np.fromstring(x.strip("[]"), sep=' ') for x in ch_data], dtype=float)[::-1,:]
-            data.append(f_asc)
-    channel_arrays = np.array(data)
-    tau_asc_v = (channel_arrays[0] * channel_arrays[3]) + (channel_arrays[1] * channel_arrays[4]) + (channel_arrays[2] * channel_arrays[5])
-    alpha = channel_arrays[0] + channel_arrays[1] + channel_arrays[2]
-    tau_asc = np.divide(tau_asc_v, alpha, out = np.zeros_like(tau_asc_v, dtype=float), where=alpha!=0)
-    return tau_asc
 
-def Import_data(file_list):
-    #Intensity Image
-    image = tifffile.imread(file_list[0])
-    
-    #sdt file
-    s_sdt = (file_list[2][0]).rstrip(",")
-    data_sdt = SdtFile(s_sdt)
-    sdt = np.array(data_sdt.data)
-    
-    # Ascii files
-    ch1_data = [file_list[1][0], file_list[1][1],
-              file_list[1][2], file_list[1][3],
-              file_list[1][4], file_list[1][5]]
-    
-    ch2_data = [file_list[1][6], file_list[1][7],
-              file_list[1][8], file_list[1][9],
-              file_list[1][10], file_list[1][11]]
-    
-    tau1 = read_asc(ch1_data)
-    tau2 = read_asc(ch2_data)
-
-    
-    return tau1, tau2, image, sdt
-    
-def loadData(ffolder, imageFile,tauFile):
+def loadData(ffolder, imageFile,tauFile1, tauFile2):
     # load measured data
     image = tifffile.imread(ffolder +'/' + imageFile)
-    tau = pd.read_excel(ffolder +'/' + tauFile, sheet_name="TauMean 1", header=None).to_numpy()[::-1,:]
+    tau1 = pd.read_excel(ffolder +'/' + tauFile1, sheet_name="TauMean 1", header=None).to_numpy()[::-1,:]
+    tau2 = pd.read_excel(ffolder +'/' + tauFile2, sheet_name="TauMean 1", header=None).to_numpy()[::-1,:]
     
     #remove nan data
-    tau[np.isnan(tau)] = 0
+    tau1[np.isnan(tau1)] = 0
+    tau2[np.isnan(tau2)] = 0
 
-    return image, tau
+    return image, tau1, tau2
 
 def loadClassification(ffolder, classFile, imageSize, columnName= 'classification_Hala', sheet_name="Sheet1"):
     # load ground true
@@ -325,3 +294,74 @@ def sensitivity_specificity(y_true, y_pred, labels=None):
         results[cls] = {"sensitivity": sensitivity, "specificity": specificity}
 
     return results
+
+
+def read_asc(channel_data):
+    data = []
+    for j in range(6):
+        with open(channel_data[j]) as f:
+            ch_data = ([line.strip() for line in f if line.strip()])
+            f_asc = np.array([np.fromstring(x.strip("[]"), sep=' ') for x in ch_data], dtype=float)[::-1,:]
+            data.append(f_asc)
+    channel_arrays = np.array(data)
+    tau_asc_v = (channel_arrays[0] * channel_arrays[3]) + (channel_arrays[1] * channel_arrays[4]) + (channel_arrays[2] * channel_arrays[5])
+    alpha = channel_arrays[0] + channel_arrays[1] + channel_arrays[2]
+    tau_asc = np.divide(tau_asc_v, alpha, out = np.zeros_like(tau_asc_v, dtype=float), where=alpha!=0)
+    return tau_asc
+
+
+
+def Import_data(file_list):
+    # Identify data name
+    b = os.path.basename(file_list[0][0])
+    b_name = Path(b).stem
+    data_name_1 = (b_name).replace("_71_960nm_116fr_3Pro","")
+    data_name = (data_name_1).replace("-Ch2-_intensity_image", "")
+    
+    #Intensity Image
+    image = tifffile.imread(file_list[0])
+    
+    #sdt file
+    s_sdt = (file_list[2][0]).rstrip(",")
+    data_sdt = SdtFile(s_sdt)
+    sdt = np.array(data_sdt.data)
+    
+    # Ascii files
+    ch1_data = [file_list[1][0], file_list[1][1],
+              file_list[1][2], file_list[1][3],
+              file_list[1][4], file_list[1][5]]
+    
+    ch2_data = [file_list[1][6], file_list[1][7],
+              file_list[1][8], file_list[1][9],
+              file_list[1][10], file_list[1][11]]
+    
+    tau1 = read_asc(ch1_data)
+    tau2 = read_asc(ch2_data)
+
+    
+    return tau1, tau2, image, sdt, data_name
+
+
+def tune_click(segments, event):
+    global last_clicked_label
+    
+    if event.type == "mouse_press":
+        coords = segments.world_to_data(event.position)
+        coords = tuple(int(c) for c in coords)
+        lbl = segments.data[coords]
+
+        if lbl > 0:
+            print("Clicked segment:", lbl)
+            last_clicked_label = lbl
+            selected_labels.add(lbl)
+            highlight_segment()
+            
+def highlight_segment():
+    overlay = np.zeros_like(Overview_map)
+
+    for lbl in selected_labels:
+        overlay[Overview_map == lbl] = 1   # mark selected pixels
+
+    classi_click.data = overlay
+    classi_click.color = {0:"transparent", 1:"yellow"}
+    classi_click.refresh()

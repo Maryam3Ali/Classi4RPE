@@ -61,10 +61,11 @@ for f in file_list:
 
 #%% For ground truth data reading
 
-ffolder = r'C:\Users\DELL\Documents\HiResi4RPE\segmentation\Img_Segmentation_test\Test_seg_class\2018004_1_1_ch2'
+ffolder = r'C:\Users\Maryam\Documents\Granules Classification\Test_seg_class\2018004_1_1_ch2'
 #Ground truth classification file
 classFile = '2018004_1_1.xlsx'
 columnName = 'classification'
+
 
 #%% Reading the data
 
@@ -225,49 +226,13 @@ viewer.add_labels(borders_L, name='L_Borders', colormap = {1:"white"})
  
         
         
+
 #%% Finetuning & manual modifications on the classification
 #By clicking on the sgmented image then a => L, q => M, j => ML
 
 
-segments = viewer.add_labels(Overview_map, name = "segments")
-classi_click = viewer.add_labels(np.zeros_like(Overview_map), name="Manual modification")
 
-selected_labels = set()
-last_clicked_label = None
-
-ML_tuned = []
-L_tuned = []
-M_tuned = []
-
-
-segments.mouse_drag_callbacks.append(tune_click)
-
-@viewer.bind_key('a', overwrite = True)
-def assign_Lipo(viewer2):
-    if last_clicked_label:
-        L_tuned.append(last_clicked_label) 
-        print(f"Label {last_clicked_label} assigned to L")
-    else:
-        print("Click a label first.")
-
-@viewer.bind_key('q', overwrite = True)
-def assign_M(viewer2):
-    if last_clicked_label:
-        M_tuned.append(last_clicked_label) 
-        print(f"Label {last_clicked_label} assigned to M")
-    else:
-        print("Click a label first.")
-        
-@viewer.bind_key('j', overwrite = True)
-def assign_ML(viewer2):
-    if last_clicked_label:
-        ML_tuned.append(last_clicked_label) 
-        print(f"Label {last_clicked_label} assigned to ML")
-    else:
-        print("Click a label first.")
-
-
-
+L_tuned, M_tuned, ML_tuned = tune_class_click(Overview_map, allFitImage)
 
 
 

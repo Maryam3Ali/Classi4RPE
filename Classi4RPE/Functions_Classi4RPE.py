@@ -64,8 +64,9 @@ def loadClassification(ffolder, classFile, imageSize, columnName= 'classificatio
     gClass = np.array([GrainId.name[str.upper(ii.replace(" ", ""))] for ii in _gClass])
 
     classImage = np.zeros(imageSize,dtype=int)
-    classImage[imageSize[0] - gPos[:,-1],gPos[:,-2]] = gClass
-    #classImage[gPos[:,-2],gPos[:,-1]] = gClass
+    #classImage[imageSize[0] - gPos[:,-1],gPos[:,-2]] = gClass
+    #classImage[ gPos[:,-1],gPos[:,-2]] = gClass
+    classImage[gPos[:,-2],gPos[:,-1]] = gClass
 
 
     return classImage
@@ -341,27 +342,75 @@ def Import_data(file_list):
     
     return tau1, tau2, image, sdt, data_name
 
-
-def tune_click(segments, event):
-    global last_clicked_label
     
-    if event.type == "mouse_press":
-        coords = segments.world_to_data(event.position)
-        coords = tuple(int(c) for c in coords)
-        lbl = segments.data[coords]
+    
+def tune_class_click(labels, old_classImage):
+    viewer = napari.Viewer()
+    
+    segments = viewer.add_labels(labels, name="segments")
+    old_classi = viewer.add_labels((old_classImage), name="oldClassImage")
+    classi_click = viewer.add_labels(np.zeros_like(labels), name="Manual_modification")
 
-        if lbl > 0:
-            print("Clicked segment:", lbl)
-            last_clicked_label = lbl
-            selected_labels.add(lbl)
-            highlight_segment()
-            
-def highlight_segment():
-    overlay = np.zeros_like(Overview_map)
+    selected_labels = set()
+    last_clicked_label = [None]   
 
-    for lbl in selected_labels:
-        overlay[Overview_map == lbl] = 1   # mark selected pixels
+    L_tuned = []
+    M_tuned = []
+    ML_tuned = []
 
-    classi_click.data = overlay
-    classi_click.color = {0:"transparent", 1:"yellow"}
-    classi_click.refresh()
+
+    def on_click(layer, event):
+        if event.type == "mouse_press":
+            coords = layer.world_to_data(event.position)
+            coords = tuple(int(c) for c in coords)
+            lbl = layer.data[coords]
+
+            if lbl > 0:
+                print("Clicked:", lbl)
+                last_clicked_label[0] = lbl
+                selected_labels.add(lbl)
+                update_highlight()
+
+    segments.mouse_drag_callbacks.append(on_click)
+
+
+    def update_highlight():
+        overlay = np.zeros_like(labels)
+        for lbl in selected_labels:
+            overlay[labels == lbl] = 1
+        
+        classi_click.data = overlay
+        classi_click.color = {0: "transparent", 1: "yellow"}
+        classi_click.refresh()
+
+
+    @viewer.bind_key('a')
+    def assign_L(viewer):
+        if last_clicked_label[0] is not None:
+            L_tuned.append(last_clicked_label[0])
+            print(f"Label {last_clicked_label[0]} → L")
+        else:
+            print("Click a label first")
+
+    @viewer.bind_key('q')
+    def assign_M(viewer):
+        if last_clicked_label[0] is not None:
+            M_tuned.append(last_clicked_label[0])
+            print(f"Label {last_clicked_label[0]} → M")
+        else:
+            print("Click a label first")
+
+    @viewer.bind_key('j')
+    def assign_ML(viewer):
+        if last_clicked_label[0] is not None:
+            ML_tuned.append(last_clicked_label[0])
+            print(f"Label {last_clicked_label[0]} → ML")
+        else:
+            print("Click a label first")
+
+
+    napari.run()
+
+
+    return L_tuned, M_tuned, ML_tuned
+

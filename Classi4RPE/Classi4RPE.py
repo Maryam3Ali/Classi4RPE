@@ -61,11 +61,12 @@ for f in file_list:
 
 #%% For ground truth data reading
 
-ffolder = r'C:\Users\Maryam\Documents\Granules Classification\Test_seg_class\2018004_1_1_ch2'
+#ffolder = r'C:\Users\Maryam\Documents\Granules Classification\Test_seg_class\2018004_1_1_ch2'
 #Ground truth classification file
-classFile = '2018004_1_1.xlsx'
-columnName = 'classification'
+#classFile = '2018004_1_1.xlsx'
+#columnName = 'classification'
 
+#classImage = loadClassification(ffolder,classFile,imageSize= image.shape, columnName= columnName)
 
 #%% Reading the data
 
@@ -74,16 +75,14 @@ tau1, tau2, image, sdt_d, data_name = Import_data(file_list)
 
 
 #%% Processing the lifetime values with the intensity image (Visualize the lifetime image)
+# and Plotting
 
-classImage = loadClassification(ffolder,classFile,imageSize= image.shape, columnName= columnName)
 intTauImage = getTauIntensityImage(image,tau2)
-
-# Plotting
 
 viewer = napari.Viewer()
 viewer.add_image(image, name='intensity')
 viewer.add_image(intTauImage, rgb=True)
-viewer.add_labels(classImage,colormap = GrainId.colorNapari)
+#viewer.add_labels(classImage,colormap = GrainId.colorNapari)
 
 #%% 2D histogram tau x intensity
 
@@ -120,8 +119,6 @@ melImage = getTauRangeImage(image,tau, tauRange=[0, tau_thresh])
 
 melBinary = getMask(melImage)
 
-#viewer.add_labels(lipBinary, name='lip mask')
-#viewer.add_labels(melBinary*2, name= 'mel mask')
 
 
 #%% segmentation of granules (long lifetimes and shortlifetimes)
@@ -149,19 +146,30 @@ Overview_map = np.maximum(melLabel, lipLabel_shifted)
 
 M_class = np.zeros((melLabel.max()),dtype=int) +4
 
+# segmented image of the all segments without expansion
+
+melLabel_noex = seeded_water_shed(melImage*melBinary, min_distance = 7, expansion=0)
+lipLabel_noex = seeded_water_shed(lipImage*lipBinary, min_distance = 3, expansion = 1)
+
+max_M_noex = melLabel_noex.max()
+lipLabel_shifted_noex = np.where(lipLabel_noex > 0, lipLabel_noex + max_M_noex, 0)  
+segments_noex = np.maximum(melLabel_noex, lipLabel_shifted_noex)
+borders_noex = (find_boundaries(segments_noex, mode='outer'))
+
+
 
 #%% Comparing the classification with ground truth 
 
 
-melGTImage, melGTClass = projectGroundTrueToLabels(classImage, melLabel)
-lipGTImage, lipGTClass = projectGroundTrueToLabels(classImage, lipLabel)
+#melGTImage, melGTClass = projectGroundTrueToLabels(classImage, melLabel)
+#lipGTImage, lipGTClass = projectGroundTrueToLabels(classImage, lipLabel)
 
-GTImage = np.max(np.array([melGTImage, lipGTImage]), axis=0)
+#GTImage = np.max(np.array([melGTImage, lipGTImage]), axis=0)
 
-g_Image, g_Class = projectGroundTrueToLabels(classImage, Overview_map)
+#g_Image, g_Class = projectGroundTrueToLabels(classImage, Overview_map)
 
 
-viewer.add_labels(GTImage, colormap=GrainId.colorNapari)
+#viewer.add_labels(GTImage, colormap=GrainId.colorNapari)
 
 #%% Get intensity/tau profiles of the short lifetime granules (Mlanolipofuscins / Melanin)
 #Apply tau fitting for each granule(segment) and plot the profile
@@ -206,69 +214,51 @@ melFitClass = separateMLfromM(tauFit, thrTauRatio=thrTauRatio)
 #%% Combine L & ML classification
 # & Plotting
 
-melFitImage = myClassToImage(melFitClass,melLabel)
+melFitImage = myClassToImage(melFitClass,melLabel_noex)
 lipFitImage = (lipLabel>0)*GrainId.name['L']
 
 # add L M and ML together in one image
 allFitImage = np.max(np.array([melFitImage, lipFitImage]), axis=0)
 
-viewer.add_labels(allFitImage, colormap=GrainId.colorNapari)
+#viewer.add_labels(allFitImage, colormap=GrainId.colorNapari)
 
-#Add border to each segment
-borders_M = find_boundaries(melLabel, mode='outer')
-borders_L = find_boundaries(lipLabel, mode='outer')
-
-borders = np.logical_or(borders_L, borders_M)
-borders = borders.astype(int)
-
-viewer.add_labels(borders_M, name='M_Borders', colormap = {1:"white"})  
-viewer.add_labels(borders_L, name='L_Borders', colormap = {1:"white"})  
- 
-        
-        
+# create a visual image based on the 'not' expand segmentation, for better visualization
+# borders are added to see the segments clearly 
+visual_classImage = allFitImage + (borders_noex * 4)
+classi_layer = viewer.add_labels(visual_classImage, name='Classi', colormap = GrainId.colorNapari)
 
 #%% Finetuning & manual modifications on the classification
 #By clicking on the sgmented image then a => L, q => M, j => ML
+#
+
+L_tuned, M_tuned, ML_tuned, = tune_class_click(Overview_map, allFitImage, visual_classImage, classi_layer, viewer)
 
 
-
-L_tuned, M_tuned, ML_tuned = tune_class_click(Overview_map, allFitImage)
-
+#%% assigned the finetuning to the image & save it
 
 
-#%% Assign new modified classification and plot the modified classification
+Tuned_classImg_vis = visual_classImage.copy() 
+Tuned_classImg =  visual_classImage.copy()  
 
-Tuned_classImg = allFitImage.copy()
+Tuned_classImg[np.isin(Tuned_classImg, L_tuned)] = 1
+Tuned_classImg[np.isin(Tuned_classImg, M_tuned)] = 2
+Tuned_classImg[np.isin(Tuned_classImg, ML_tuned)] = 3
 
+Tuned_classImg_vis[np.isin(Tuned_classImg_vis, L_tuned)] = 1
+Tuned_classImg_vis[np.isin(Tuned_classImg_vis, M_tuned)] = 2
+Tuned_classImg_vis[np.isin(Tuned_classImg_vis, ML_tuned)] = 3
 
-Tuned_classImg[np.isin(Overview_map, L_tuned)] = 1
-Tuned_classImg[np.isin(Overview_map, M_tuned)] = 2
-Tuned_classImg[np.isin(Overview_map, ML_tuned)] = 3
-
-
-
-
-viewer.add_labels(Tuned_classImg, colormap=GrainId.colorNapari, name = "Tuned Classification Image")
-
-
-#%%
-
-
+#%% Save predictions of classifications
 
 labels = np.unique(Overview_map)
 
 
-class_predictions = {lbl: np.unique(allFitImage[Overview_map == lbl])[0] for lbl in labels}
+class_predictions = {lbl: np.unique(Tuned_classImg[Overview_map == lbl])[0] for lbl in labels}
 predictions = np.array([class_predictions[lbl] for lbl in sorted(class_predictions)])[1:]
-
-class_predictions_tuned = {lbl: np.unique(Tuned_classImg[Overview_map == lbl])[0] for lbl in labels}
-tuned_predictions = np.array([class_predictions_tuned[lbl] for lbl in sorted(class_predictions_tuned)])[1:]
-
-
 
 
 #%%Sensitivity & Specificity
-
+'''
 
 grs = [1, 2, 3, 4]
 
@@ -310,7 +300,7 @@ print(Evaluation_non)
 
 
     
-
+'''
 
 #%% Data to be exported
 
@@ -365,14 +355,5 @@ Export = pd.DataFrame(Export_results)
 
 Export.to_excel("Results_"+ str(data_name) + ".xlsx", index = False)
 
-# Tuned data
 
-Export_results_tuned = {"Data ID":dataID, "segment":seg_labeled, "Class [L=1, M=2, ML=3]":tuned_predictions,
-                  "X":coord[:, 1], "Y":coord[:, 0],
-                  "mean_tau_Ch1":meanT1, "mean_tau_Ch2":meanT2,
-                  "no. of pixels":no_pixels, "no. of photons SSC":photons1, "no. of photons LSC":photons2, 
-                  "Peak Emmision Wavelength":empty}
-Export_t = pd.DataFrame(Export_results_tuned)
-
-Export_t.to_excel("Modified Results_"+ str(data_name) + ".xlsx", index = False)
 

@@ -344,12 +344,10 @@ def Import_data(file_list):
 
     
     
-def tune_class_click(labels, old_classImage):
-    viewer = napari.Viewer()
+def tune_class_click(labels, old_classImage, old_visualImage, classi_layer, view_layer):
     
-    segments = viewer.add_labels(labels, name="segments")
-    old_classi = viewer.add_labels((old_classImage), name="oldClassImage")
-    classi_click = viewer.add_labels(np.zeros_like(labels), name="Manual_modification")
+    segments = view_layer.add_labels(labels, name="segments")
+
 
     selected_labels = set()
     last_clicked_label = [None]   
@@ -375,16 +373,22 @@ def tune_class_click(labels, old_classImage):
 
 
     def update_highlight():
-        overlay = np.zeros_like(labels)
-        for lbl in selected_labels:
-            overlay[labels == lbl] = 1
         
-        classi_click.data = overlay
-        classi_click.color = {0: "transparent", 1: "yellow"}
-        classi_click.refresh()
+        old_visualImage[np.isin(labels, L_tuned)] = 1
+        old_visualImage[np.isin(labels, M_tuned)] = 2
+        old_visualImage[np.isin(labels, ML_tuned)] = 3     
+        classi_layer.data = old_visualImage
+            
+        old_classImage[np.isin(labels, L_tuned)] = 1
+        old_classImage[np.isin(labels, M_tuned)] = 2
+        old_classImage[np.isin(labels, ML_tuned)] = 3     
+        #classi_layer.data = old_classImage
+        
+
+        #classi_layer.refresh()
 
 
-    @viewer.bind_key('a')
+    @view_layer.bind_key('a', overwrite=True)
     def assign_L(viewer):
         if last_clicked_label[0] is not None:
             L_tuned.append(last_clicked_label[0])
@@ -392,7 +396,7 @@ def tune_class_click(labels, old_classImage):
         else:
             print("Click a label first")
 
-    @viewer.bind_key('q')
+    @view_layer.bind_key('q', overwrite=True)
     def assign_M(viewer):
         if last_clicked_label[0] is not None:
             M_tuned.append(last_clicked_label[0])
@@ -400,13 +404,14 @@ def tune_class_click(labels, old_classImage):
         else:
             print("Click a label first")
 
-    @viewer.bind_key('j')
+    @view_layer.bind_key('j', overwrite=True)
     def assign_ML(viewer):
         if last_clicked_label[0] is not None:
             ML_tuned.append(last_clicked_label[0])
             print(f"Label {last_clicked_label[0]} → ML")
         else:
             print("Click a label first")
+            
 
 
     napari.run()

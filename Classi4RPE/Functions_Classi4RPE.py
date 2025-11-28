@@ -385,7 +385,8 @@ def tune_class_click(labels, old_classImage, old_visualImage, classi_layer, view
         #classi_layer.data = old_classImage
         
 
-        #classi_layer.refresh()
+        classi_layer.refresh()
+        classi_layer.events.set_data()
 
 
     @view_layer.bind_key('a', overwrite=True)
@@ -393,6 +394,14 @@ def tune_class_click(labels, old_classImage, old_visualImage, classi_layer, view
         if last_clicked_label[0] is not None:
             L_tuned.append(last_clicked_label[0])
             print(f"Label {last_clicked_label[0]} → L")
+            
+            old_visualImage[np.isin(labels, L_tuned)] = 1
+            old_visualImage[np.isin(labels, M_tuned)] = 2
+            old_visualImage[np.isin(labels, ML_tuned)] = 3     
+            classi_layer.data = old_visualImage
+            
+            classi_layer.refresh()
+            classi_layer.events.set_data()
         else:
             print("Click a label first")
 
@@ -401,6 +410,14 @@ def tune_class_click(labels, old_classImage, old_visualImage, classi_layer, view
         if last_clicked_label[0] is not None:
             M_tuned.append(last_clicked_label[0])
             print(f"Label {last_clicked_label[0]} → M")
+            
+            old_visualImage[np.isin(labels, L_tuned)] = 1
+            old_visualImage[np.isin(labels, M_tuned)] = 2
+            old_visualImage[np.isin(labels, ML_tuned)] = 3     
+            classi_layer.data = old_visualImage
+            
+            classi_layer.refresh()
+            classi_layer.events.set_data()
         else:
             print("Click a label first")
 
@@ -409,6 +426,14 @@ def tune_class_click(labels, old_classImage, old_visualImage, classi_layer, view
         if last_clicked_label[0] is not None:
             ML_tuned.append(last_clicked_label[0])
             print(f"Label {last_clicked_label[0]} → ML")
+            
+            old_visualImage[np.isin(labels, L_tuned)] = 1
+            old_visualImage[np.isin(labels, M_tuned)] = 2
+            old_visualImage[np.isin(labels, ML_tuned)] = 3     
+            classi_layer.data = old_visualImage
+            
+            classi_layer.refresh()
+            classi_layer.events.set_data()
         else:
             print("Click a label first")
             

@@ -248,7 +248,14 @@ Tuned_classImg_vis[np.isin(Tuned_classImg_vis, L_tuned)] = 1
 Tuned_classImg_vis[np.isin(Tuned_classImg_vis, M_tuned)] = 2
 Tuned_classImg_vis[np.isin(Tuned_classImg_vis, ML_tuned)] = 3
 
-#%% Save predictions of classifications
+
+for layer in viewer.layers:
+    layer.visible = False
+classi_layer.visible = True
+viewer.screenshot('classiImage.tif')
+
+
+#%% Extract predictions of classifications
 
 labels = np.unique(Overview_map)
 

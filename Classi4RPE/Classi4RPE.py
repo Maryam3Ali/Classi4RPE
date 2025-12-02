@@ -171,6 +171,7 @@ borders_noex = (find_boundaries(segments_noex, mode='outer'))
 
 #viewer.add_labels(GTImage, colormap=GrainId.colorNapari)
 
+
 #%% Get intensity/tau profiles of the short lifetime granules (Mlanolipofuscins / Melanin)
 #Apply tau fitting for each granule(segment) and plot the profile
 
@@ -231,28 +232,10 @@ classi_layer = viewer.add_labels(visual_classImage, name='Classi', colormap = Gr
 #By clicking on the sgmented image then a => L, q => M, j => ML
 #
 
-L_tuned, M_tuned, ML_tuned, = tune_class_click(Overview_map, allFitImage, visual_classImage, classi_layer, viewer)
+Tuned_classImg, Tuned_classImg_vis = tune_class_click(Overview_map, allFitImage, visual_classImage, classi_layer, viewer)
 
 
-#%% assigned the finetuning to the image & save it
 
-
-Tuned_classImg_vis = visual_classImage.copy() 
-Tuned_classImg =  visual_classImage.copy()  
-
-Tuned_classImg[np.isin(Tuned_classImg, L_tuned)] = 1
-Tuned_classImg[np.isin(Tuned_classImg, M_tuned)] = 2
-Tuned_classImg[np.isin(Tuned_classImg, ML_tuned)] = 3
-
-Tuned_classImg_vis[np.isin(Tuned_classImg_vis, L_tuned)] = 1
-Tuned_classImg_vis[np.isin(Tuned_classImg_vis, M_tuned)] = 2
-Tuned_classImg_vis[np.isin(Tuned_classImg_vis, ML_tuned)] = 3
-
-
-for layer in viewer.layers:
-    layer.visible = False
-classi_layer.visible = True
-viewer.screenshot('classiImage.tif')
 
 
 #%% Extract predictions of classifications

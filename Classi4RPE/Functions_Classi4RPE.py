@@ -28,6 +28,10 @@ from skimage.color import label2rgb
 from scipy.ndimage import  generate_binary_structure
 from sklearn.metrics import confusion_matrix
 from skimage.segmentation import relabel_sequential
+import tkinter as tk
+from tkinterdnd2 import TkinterDnD, DND_FILES
+from skimage.segmentation import find_boundaries
+
 
 
 
@@ -440,7 +444,162 @@ def tune_class_click(labels, old_classImage, old_visualImage, classi_layer, view
 
 
     napari.run()
+    
+    Tuned_classImg_vis = old_visualImage.copy() 
+    Tuned_classImg =  old_classImage.copy()  
+
+    Tuned_classImg[np.isin(Tuned_classImg, L_tuned)] = 1
+    Tuned_classImg[np.isin(Tuned_classImg, M_tuned)] = 2
+    Tuned_classImg[np.isin(Tuned_classImg, ML_tuned)] = 3
+
+    Tuned_classImg_vis[np.isin(Tuned_classImg_vis, L_tuned)] = 1
+    Tuned_classImg_vis[np.isin(Tuned_classImg_vis, M_tuned)] = 2
+    Tuned_classImg_vis[np.isin(Tuned_classImg_vis, ML_tuned)] = 3
 
 
-    return L_tuned, M_tuned, ML_tuned
+    return Tuned_classImg, Tuned_classImg_vis
+
+
+def Classi4RPE(tau, image):
+    H, xEdge, yEdge, binNumber = getTauIntensityHistogram(tau, image)
+        
+    tau_thresh = (np.percentile(tau[tau>0], 15)) +12
+
+    #get mask for M and L 
+
+    lipImage = getTauRangeImage(image,tau, tauRange=[tau_thresh+1,tau.max()])
+
+    lipBinary = getMask(lipImage)
+
+    melImage = getTauRangeImage(image,tau, tauRange=[0, tau_thresh])
+
+    melBinary = getMask(melImage)
+    
+    # segmentation of granules (long lifetimes and shortlifetimes)
+
+    # By seeded water shedding
+    # expansion was optimized based on the tested data sets (to reasonably matching the exact size of the granules)
+
+    melLabel = seeded_water_shed(melImage*melBinary, min_distance = 7, expansion=2)
+    lipLabel = seeded_water_shed(lipImage*lipBinary, min_distance = 3, expansion = 1)
+
+
+
+    max_M = melLabel.max()
+    lipLabel_shifted = np.where(lipLabel > 0, lipLabel + max_M, 0)  
+    Overview_map = np.maximum(melLabel, lipLabel_shifted)
+
+    # segmented image of the all segments without expansion
+
+    melLabel_noex = seeded_water_shed(melImage*melBinary, min_distance = 7, expansion=0)
+    lipLabel_noex = seeded_water_shed(lipImage*lipBinary, min_distance = 3, expansion = 1)
+
+    max_M_noex = melLabel_noex.max()
+    lipLabel_shifted_noex = np.where(lipLabel_noex > 0, lipLabel_noex + max_M_noex, 0)  
+    segments_noex = np.maximum(melLabel_noex, lipLabel_shifted_noex)
+    borders_noex = (find_boundaries(segments_noex, mode='outer'))
+    
+    # Get intensity/tau profiles of the short lifetime granules (Mlanolipofuscins / Melanin)
+    #Apply tau fitting for each granule(segment) and plot the profile
+
+    radius, intFit, tauFit = getProfiles(image, tau,melLabel, nPoly=2)
+    
+    # Plot values of tau & intensity ratios for each segment
+    #between edge to center
+
+    maxInt = np.max(intFit,axis=1)
+    maxTau = np.max(tauFit,axis=1)
+    ratioInt = intFit[:,0]/maxInt
+    ratioTau = tauFit[:,-1]/tauFit[:,0]
+
+
+    #Set a threshold for distinguishing Melanin from Melanolipofuscins
+    # this threshold has been optimized based on the tested data sets
+    thrTauRatio = 1.15
+
+    # according the criteria classify ML clusters from M
+    melFitClass = separateMLfromM(tauFit, thrTauRatio=thrTauRatio)
+    
+    
+    #Combine L & ML classification
+    # & Plotting
+
+    melFitImage = myClassToImage(melFitClass,melLabel_noex)
+    lipFitImage = (lipLabel>0)*GrainId.name['L']
+
+    # add L M and ML together in one image
+    allFitImage = np.max(np.array([melFitImage, lipFitImage]), axis=0)
+    
+    # create a visual image based on the 'not' expand segmentation, for better visualization
+    # borders are added to see the segments clearly 
+    visual_classImage = allFitImage + (borders_noex * 4)
+        
+
+    return allFitImage, visual_classImage, Overview_map
+
+def select_data_toshow(options_data):
+    """
+    Popup window to select one item from options_list.
+    Returns (selected_item, index)
+    """
+
+    selection = {"value": None, "index": None}
+
+    def on_ok():
+        sel = listbox.curselection()
+        if sel:
+            idx = sel[0]               # index in the listbox
+            selection["index"] = idx   # store index
+            selection["value"] = listbox.get(idx)   # store string
+        window.destroy()
+
+    # Popup window
+    window = tk.Toplevel()
+    window.title("Select data to visualize")
+    window.geometry("500x500")
+
+    tk.Label(window, text="Select the data to be visualized and tined:", pady=10).pack()
+
+    frame = tk.Frame(window)
+    frame.pack(expand=True, fill="both")
+
+    scrollbar = tk.Scrollbar(frame)
+    scrollbar.pack(side="right", fill="y")
+
+    listbox = tk.Listbox(frame, selectmode="single")
+    listbox.pack(expand=True, fill="both")
+
+    listbox.config(yscrollcommand=scrollbar.set)
+    scrollbar.config(command=listbox.yview)
+
+    # Insert list items
+    for item in options_data:
+        listbox.insert(tk.END, item)
+
+    tk.Button(window, text="Show", command=on_ok).pack(pady=10)
+
+    window.grab_set()
+    window.wait_window()
+
+    return selection["value"], selection["index"]
+
+def read_ascii(path):
+    with open(path, "r") as f:
+        f_d = ([line.strip() for line in f if line.strip()])
+        f_asc = np.array([np.fromstring(x.strip("[]"), sep=' ') for x in f_d], dtype=float)[::-1,:]
+        return f_asc
+
+def read_tif(path):
+    return tifffile.imread(path)
+
+def read_sdt(my_sdt):
+    data_sdt = SdtFile(my_sdt)
+    sdt = np.array(data_sdt.data)
+    return sdt
+
+def from_asci_to_tau(channel_arrays):
+    tau_asc_v = (channel_arrays[0] * channel_arrays[3]) + (channel_arrays[1] * channel_arrays[4]) + (channel_arrays[2] * channel_arrays[5])
+    alpha = channel_arrays[0] + channel_arrays[1] + channel_arrays[2]
+    tau_asc = np.divide(tau_asc_v, alpha, out = np.zeros_like(tau_asc_v, dtype=float), where=alpha!=0)
+    return tau_asc
 

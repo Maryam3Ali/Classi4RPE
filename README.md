@@ -14,7 +14,10 @@ It can read FLIM and intensity data for RPE measurements, and:
    lifetime ratio from center to edge.
    - Export the segmented & classified granules data: coordinates, mean lifetimes.
    - Visualize selectied granules interactively by selecting the lifetime/intensity range from the histogram.
+   - Finetune the classification directly via Napari GUI.
 
 This code (including the setted parameters) has been tested on FLIM data sets from University Hospital Jena, Experimental Ophthalmology Group using Becker
 & Hickl GmbH.
+
+
  

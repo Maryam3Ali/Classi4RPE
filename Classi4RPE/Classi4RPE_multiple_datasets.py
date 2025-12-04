@@ -157,6 +157,7 @@ if selected_show is not None:
 else:
     print("You didn't select a data to visualize it" )
 
+
 #%% save & export data
 
 
@@ -171,26 +172,29 @@ for label, rgb in colorNapari.items():
 
 mpl_cmap = ListedColormap(colors, name="my_napari_cmap")
 
-segment_numbers = []
-empty = []
-data_ID = []
-centers = []
-mean_tau_ch2 = []
-mean_tau_ch1 = []
-no_photons1 = []
-no_photons2 = []
-classi_preds = []
-pix = []
+Sdts_sum1 = np.sum(Sdts[:, 0, :, :], axis = 3)
+Sdts_sum2 = np.sum(Sdts[:, 1, :, :], axis = 3)
+
+
+results = []
+
 
 for d in data_no_range:
+    cal_results = {}
     plt.imsave((str(data_names[d]+"  classification"+".tiff")), Classified_visImgs[d, :, :],cmap=mpl_cmap,
                vmin=0, vmax=4)
     
-    labels = np.unique(Segments[d, :, :])
+    seg_img = Segments[d, :, :]
+
+    
+    labels = np.unique(seg_img)
+    labels = labels[labels !=0]
+    
     class_predictions = {}
     
+    
     for lbl in labels:
-        pixels = ClassifiedImgs[d, :, :][Segments[d, :, :] == lbl]
+        pixels = ClassifiedImgs[d, :, :][seg_img == lbl]
         pixels = pixels[pixels != 0]      
 
         if len(pixels) == 0:
@@ -198,57 +202,51 @@ for d in data_no_range:
         else:
             class_predictions[lbl] = Counter(pixels).most_common(1)[0][0]
 
-    no_pixels = (ndimage.sum(np.ones_like(Segments[d, :, :]), Segments[d, :, :],
-                                     index=np.unique(Segments[d, :, :])))
-
-    #class_predictions = {lbl: np.unique(ClassifiedImgs[d, :, :][Segments[d, :, :] == lbl])[0] for lbl in labels}
     predictions = np.array([class_predictions[l] for l in sorted(class_predictions)])
 
     
-    for i in (np.unique(Segments[d, :, :])[1:]):
-        segment = (Segments[d, :, :]==i)
-        cen_of_mass = ndimage.center_of_mass(Segments[d, :, :])
-        centers.append(cen_of_mass)
-        Lifetau1 = tau1_maps_arr[d, :, :][segment]
-        mean_tau1 = np.mean(Lifetau1)
-        mean_tau_ch1.append(mean_tau1)
-        Lifetau2 = tau2_maps_arr[d, :, :][segment]
-        mean_tau2 = np.mean(Lifetau2)
-        mean_tau_ch2.append(mean_tau2) 
-        #number of photons per granule
-        photons_ch1 = np.sum((np.sum(Sdts[d, 0, :, :, :], axis = 2))[segment])
-        photons_ch2 = np.sum((np.sum(Sdts[d, 1, :, :, :], axis = 2))[segment])
-        no_photons1.append(photons_ch1)
-        no_photons2.append(photons_ch2)
-        segment_numbers.append(i)
-        empty.append("")
-        data_ID.append(data_names[d])
-        pix.append(no_pixels[i])
-        classi_preds.append(predictions[i])
-        #print(i)
+    no_pixels = (ndimage.sum(np.ones_like(seg_img), seg_img,
+                                     index=np.unique(seg_img)))
+
+    
+    com = ndimage.center_of_mass(np.ones_like(seg_img),
+                             labels=seg_img,
+                             index=np.arange(1, seg_img.max()+1))
+    
+    
+    meanT1 = ndimage.mean(tau1_maps_arr, labels=seg_img,
+                     index=np.arange(1, seg_img.max()+1))
+    
+    meanT2 = ndimage.mean(tau2_maps_arr, labels=seg_img,
+                     index=np.arange(1, seg_img.max()+1))
+
+    
+    photons_ch1 = ndimage.sum(Sdts_sum1[d, :, :], seg_img, index=labels)
+    photons_ch2 = ndimage.sum(Sdts_sum2[d, :, :], seg_img, index=labels)
+    
+    data_ID = np.full((no_pixels.shape), str(data_names[d]))
+    
+    empty = np.full((no_pixels.shape), "")
+    
+    for i, seg in enumerate(labels):
+        centers_y, centers_x = com[i]
+        results.append({
+            "Data ID": data_ID[i],
+            "segment": seg,
+            "Class [L=1, M=2, ML=3]" : predictions[i],
+            "nubmer_pixels": no_pixels[i],
+            "T1_mean": meanT1[i],
+            "T2_mean": meanT2[i],
+            "y": centers_y,
+            "x": centers_x,
+            "no. of photons SSC" : photons_ch1[i],
+            "no. of photons LSC" : photons_ch2[i],
+            "Peak_emission_wavelength": empty[i] })
     
 
-coord = np.array(centers)
-meanT2 = np.array(mean_tau_ch2)
-meanT1 = np.array(mean_tau_ch1)
-photons1 = np.array(no_photons1)
-photons2 = np.array(no_photons2)
-no_seg_per = np.array(segment_numbers)
-empty_arr = np.array(empty)
-title_data = np.array(data_ID)
-classi_p_res = np.array(classi_preds)
-no_pixels_arr = np.array(pix)
-
-
-
-Export_results = {"Data ID":title_data, "segment":no_seg_per, "Class [L=1, M=2, ML=3]":classi_p_res,
-                  "X":coord[:, 1], "Y":coord[:, 0],
-                  "mean_tau_Ch1":meanT1, "mean_tau_Ch2":meanT2,
-                  "no. of pixels":no_pixels_arr, "no. of photons SSC":photons1, "no. of photons LSC":photons2, 
-                  "Peak Emmision Wavelength":empty}
-Export = pd.DataFrame(Export_results)
+Export = pd.DataFrame(results)
 
 Export.to_excel("Results_classi4RPE.xlsx", index = False)
 
 
-    
+

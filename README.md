@@ -16,6 +16,9 @@ It can read FLIM and intensity data for RPE measurements, and:
    - Visualize selectied granules interactively by selecting the lifetime/intensity range from the histogram.
    - Finetune the classification directly via Napari GUI.
 
+Classi4RPE_GUI: is a fully simple GUI for importing data files and process them, allowing the user to finetune the data and change the classification.
+Imported data should contain: Intensity image, fitting ascii files for lifetime, and sdt data. 
+
 This code (including the setted parameters) has been tested on FLIM data sets from University Hospital Jena, Experimental Ophthalmology Group using Becker
 & Hickl GmbH.
 

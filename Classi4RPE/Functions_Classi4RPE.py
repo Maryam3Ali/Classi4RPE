@@ -532,25 +532,22 @@ def Classi4RPE(tau, image):
     
     # create a visual image based on the 'not' expand segmentation, for better visualization
     # borders are added to see the segments clearly 
-    visual_classImage = allFitImage + (borders_noex * 4)
-        
+    #visual_classImage = allFitImage + (borders_noex * 4)
+    visual_classImage = allFitImage.copy()
+    visual_classImage[borders_noex] = 4   
 
     return allFitImage, visual_classImage, Overview_map
 
 def select_data_toshow(options_data):
-    """
-    Popup window to select one item from options_list.
-    Returns (selected_item, index)
-    """
 
     selection = {"value": None, "index": None}
 
     def on_ok():
         sel = listbox.curselection()
         if sel:
-            idx = sel[0]               # index in the listbox
-            selection["index"] = idx   # store index
-            selection["value"] = listbox.get(idx)   # store string
+            idx = sel[0]               
+            selection["index"] = idx 
+            selection["value"] = listbox.get(idx) 
         window.destroy()
 
     # Popup window
@@ -558,7 +555,7 @@ def select_data_toshow(options_data):
     window.title("Select data to visualize")
     window.geometry("500x500")
 
-    tk.Label(window, text="Select the data to be visualized and tined:", pady=10).pack()
+    tk.Label(window, text="Select the data to be visualized and tuned:", pady=10).pack()
 
     frame = tk.Frame(window)
     frame.pack(expand=True, fill="both")
@@ -603,3 +600,172 @@ def from_asci_to_tau(channel_arrays):
     tau_asc = np.divide(tau_asc_v, alpha, out = np.zeros_like(tau_asc_v, dtype=float), where=alpha!=0)
     return tau_asc
 
+
+
+def tune_class_click_cyclic_colored(labels, old_classImage, old_visualImage, classi_layer, view_layer):
+    
+    # Add segment labels layer
+    segments = view_layer.add_labels(labels, name="segments")
+
+    selected_labels = set()
+    last_clicked_label = [None]
+
+    # Lists for each class
+    L_tuned, M_tuned, ML_tuned = [], [], []
+
+
+    # Cyclic class order
+    class_order = ['L', 'ML', 'M']
+    click_counter = [0]
+
+    # Colors as strings (works in 0.5.6)
+    class_colors = {
+        'L': "yellow",
+        'M': "green",
+        'ML': "blue"
+    }
+
+    # Map class name → list
+    class_dict = {'L': L_tuned,  'M': M_tuned, 'ML': ML_tuned}  
+
+    # Map label ID → color string
+    label_color_mapping = {}
+
+    # Use a persistent overlay array
+    overlay = old_visualImage.copy()
+    
+    Tuned_classImg_vis = old_visualImage.copy() 
+    Tuned_classImg =  old_classImage.copy()
+
+
+
+    def on_click(layer, event):
+        if event.type == "mouse_press":
+            coords = layer.world_to_data(event.position)
+            coords = tuple(int(c) for c in coords)
+            lbl = layer.data[coords]
+
+            if lbl > 0:
+                last_clicked_label[0] = lbl
+
+                # Determine class cyclically
+                cls = class_order[click_counter[0] % len(class_order)]
+                click_counter[0] += 1
+
+                # Add label to corresponding class list
+                class_dict[cls].append(lbl)
+                selected_labels.add(lbl)
+                print(f"Label {lbl} → {cls}")
+
+                # Assign color string for this label
+                label_color_mapping[lbl] = class_colors[cls]
+
+                # Update overlay layer immediately
+                update_overlay(lbl, cls)
+
+                
+
+    segments.mouse_drag_callbacks.append(on_click)
+
+
+    def update_overlay(lbl, cls):
+        # Update only the clicked label in overlay
+        if class_colors[cls] == "yellow":
+            overlay[labels == lbl] = 1
+            old_classImage[labels == lbl] = 1
+            Tuned_classImg_vis[np.isin(labels, L_tuned)] = 1
+            Tuned_classImg[np.isin(labels, L_tuned)] = 1
+        elif class_colors[cls] == "green":
+            overlay[labels == lbl] = 2
+            old_classImage[labels == lbl] = 2
+            Tuned_classImg_vis[np.isin(labels, M_tuned)] = 2
+            Tuned_classImg[np.isin(labels, M_tuned)] = 2
+        elif class_colors[cls] == "blue":
+            overlay[labels == lbl] = 3
+            old_classImage[labels == lbl] = 3
+            Tuned_classImg_vis[np.isin(labels, ML_tuned)] = 3
+            Tuned_classImg[np.isin(labels, ML_tuned)] = 3
+
+        classi_layer.data = overlay.copy()
+
+
+
+        color_dict = {0: "transparent"}
+        for label_id, color_str in label_color_mapping.items():
+            color_dict[label_id] = color_str
+
+        classi_layer.color = color_dict
+
+
+        classi_layer.refresh()
+        classi_layer._set_view_slice()
+
+    napari.run()
+   
+    return Tuned_classImg, Tuned_classImg_vis
+
+
+def select_data_toshow2(options_data, ints_maps, tau2_maps_arr, Classified_visImgs, ClassifiedImgs, Segments):
+    
+    def nap_vis(idx, ints_maps, tau2_maps_arr, Classified_visImgs, ClassifiedImgs, Segments):
+        
+        
+        viewer = napari.Viewer()
+        viewer.add_image(ints_maps[idx, :, :], name='intensity')
+        intTauImage = getTauIntensityImage(ints_maps[idx, :, :], tau2_maps_arr[idx, :, :])
+        viewer.add_image(intTauImage, rgb=True)
+        
+        ClassiLayer = viewer.add_labels(Classified_visImgs[idx, :, :], colormap=GrainId.colorNapari,
+                                       name='Classi')
+        
+
+        ClassifiedImgs[idx, :, :], Classified_visImgs[idx, :, :] = tune_class_click_cyclic_colored(Segments[idx, :, :], 
+                                                                    ClassifiedImgs[idx, :, :], Classified_visImgs[idx, :, :], 
+                                                                    ClassiLayer, viewer)
+
+    def on_show():
+
+        sel = listbox.curselection()
+        if not sel:
+            return
+
+        idx = sel[0]
+
+        nap_vis(idx, ints_maps, tau2_maps_arr, Classified_visImgs, ClassifiedImgs, Segments)
+        print("You have selected data:", idx)
+
+        
+    def on_close():
+        window.destroy()
+
+    # Popup window
+    window = tk.Toplevel()
+    window.title("Visualize & tune the classification")
+    window.geometry("500x500")
+
+    tk.Label(
+        window,
+        text="Select the data to be visualized:", font=("Calibri", 14), pady=10).pack()
+
+    frame = tk.Frame(window)
+    frame.pack(expand=True, fill="both")
+
+    scrollbar = tk.Scrollbar(frame)
+    scrollbar.pack(side="right", fill="y")
+
+    listbox = tk.Listbox(frame, selectmode="single")
+    listbox.pack(expand=True, fill="both")
+
+    listbox.config(yscrollcommand=scrollbar.set)
+    scrollbar.config(command=listbox.yview)
+
+    for item in options_data:
+        listbox.insert(tk.END, item)
+
+    btn_frame = tk.Frame(window)
+    btn_frame.pack(pady=10)
+
+    tk.Button(btn_frame, text="Show", command=on_show).pack(side="left", padx=5)
+    tk.Button(btn_frame, text="Close", command=on_close).pack(side="left", padx=5)
+    
+    return ClassifiedImgs, Classified_visImgs

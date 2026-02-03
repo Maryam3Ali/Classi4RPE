@@ -1,3 +1,13 @@
+'''
+Classi4RPE_GUI: is a fully simple GUI for importing data files and process them, 
+allowing the user to finetune the data and change the classification. Imported data should contain: Intensity image, fitting ascii files for lifetime, and sdt data.
+
+imported files: each data set file should contains: intensity images, ascii files of fitting, and sdt file
+For finetuning: user can click on the segment layer and with each click the color can be changed (L: red, M: green, ML: blue) and will alter the classified image
+Exporting: an image should be exported for the final classification + Excel sheet with calculated data for each granule in each dataset
+
+'''
+
 #%%
 
 import tkinter as tk
@@ -388,6 +398,7 @@ listbox = tk.Listbox(root)
 listbox.pack(fill="both", expand=True, padx=10, pady=10)
 
 root.mainloop()
+
 
 
 

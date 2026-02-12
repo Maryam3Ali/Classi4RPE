@@ -618,7 +618,7 @@ def tune_class_click_cyclic_colored(labels, old_classImage, old_visualImage, cla
     class_order = ['L', 'ML', 'M']
     click_counter = [0]
 
-    # Colors as strings (works in 0.5.6)
+    # Colors
     class_colors = {
         'L': "yellow",
         'M': "green",

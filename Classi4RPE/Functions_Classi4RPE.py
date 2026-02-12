@@ -603,7 +603,7 @@ def from_asci_to_tau(channel_arrays):
 
 
 def tune_class_click_cyclic_colored(labels, old_classImage, old_visualImage, classi_layer, view_layer):
-    
+    import napari
     # Add segment labels layer
     segments = view_layer.add_labels(labels, name="segments")
 
@@ -611,24 +611,25 @@ def tune_class_click_cyclic_colored(labels, old_classImage, old_visualImage, cla
     last_clicked_label = [None]
 
     # Lists for each class
-    L_tuned, M_tuned, ML_tuned = [], [], []
+    L_tuned, M_tuned, ML_tuned, non = [], [], [], []
 
 
     # Cyclic class order
-    class_order = ['L', 'ML', 'M']
+    class_order = ['L', 'ML', 'M', 'NON']
     click_counter = [0]
 
-    # Colors
+    
     class_colors = {
         'L': "yellow",
         'M': "green",
-        'ML': "blue"
+        'ML': "blue",
+        'NON': 'white'
     }
 
-    # Map class name → list
-    class_dict = {'L': L_tuned,  'M': M_tuned, 'ML': ML_tuned}  
+    
+    class_dict = {'L': L_tuned,  'M': M_tuned, 'ML': ML_tuned, 'NON' : non}  
 
-    # Map label ID → color string
+    
     label_color_mapping = {}
 
     # Use a persistent overlay array
@@ -685,6 +686,11 @@ def tune_class_click_cyclic_colored(labels, old_classImage, old_visualImage, cla
             old_classImage[labels == lbl] = 3
             Tuned_classImg_vis[np.isin(labels, ML_tuned)] = 3
             Tuned_classImg[np.isin(labels, ML_tuned)] = 3
+        elif class_colors[cls] == "white":
+            overlay[labels == lbl] = 4
+            old_classImage[labels == lbl] = 4
+            Tuned_classImg_vis[np.isin(labels, ML_tuned)] = 4
+            Tuned_classImg[np.isin(labels, ML_tuned)] = 4
 
         classi_layer.data = overlay.copy()
 

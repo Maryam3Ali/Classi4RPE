@@ -97,7 +97,7 @@ def save_ex():
 
         
         no_pixels = (ndimage.sum(np.ones_like(seg_img), seg_img,
-                                         index=np.unique(seg_img)))
+                                         index=np.unique(seg_img)))[1:]
 
         
         com = ndimage.center_of_mass(np.ones_like(seg_img),
@@ -398,6 +398,7 @@ listbox = tk.Listbox(root)
 listbox.pack(fill="both", expand=True, padx=10, pady=10)
 
 root.mainloop()
+
 
 
 

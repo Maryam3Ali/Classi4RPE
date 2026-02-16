@@ -460,83 +460,6 @@ def tune_class_click(labels, old_classImage, old_visualImage, classi_layer, view
     return Tuned_classImg, Tuned_classImg_vis
 
 
-def Classi4RPE(tau, image):
-    H, xEdge, yEdge, binNumber = getTauIntensityHistogram(tau, image)
-        
-    tau_thresh = (np.percentile(tau[tau>0], 15)) +12
-
-    #get mask for M and L 
-
-    lipImage = getTauRangeImage(image,tau, tauRange=[tau_thresh+1,tau.max()])
-
-    lipBinary = getMask(lipImage)
-
-    melImage = getTauRangeImage(image,tau, tauRange=[0, tau_thresh])
-
-    melBinary = getMask(melImage)
-    
-    # segmentation of granules (long lifetimes and shortlifetimes)
-
-    # By seeded water shedding
-    # expansion was optimized based on the tested data sets (to reasonably matching the exact size of the granules)
-
-    melLabel = seeded_water_shed(melImage*melBinary, min_distance = 7, expansion=2)
-    lipLabel = seeded_water_shed(lipImage*lipBinary, min_distance = 3, expansion = 1)
-
-
-
-    max_M = melLabel.max()
-    lipLabel_shifted = np.where(lipLabel > 0, lipLabel + max_M, 0)  
-    Overview_map = np.maximum(melLabel, lipLabel_shifted)
-
-    # segmented image of the all segments without expansion
-
-    melLabel_noex = seeded_water_shed(melImage*melBinary, min_distance = 7, expansion=0)
-    lipLabel_noex = seeded_water_shed(lipImage*lipBinary, min_distance = 3, expansion = 1)
-
-    max_M_noex = melLabel_noex.max()
-    lipLabel_shifted_noex = np.where(lipLabel_noex > 0, lipLabel_noex + max_M_noex, 0)  
-    segments_noex = np.maximum(melLabel_noex, lipLabel_shifted_noex)
-    borders_noex = (find_boundaries(segments_noex, mode='outer'))
-    
-    # Get intensity/tau profiles of the short lifetime granules (Mlanolipofuscins / Melanin)
-    #Apply tau fitting for each granule(segment) and plot the profile
-
-    radius, intFit, tauFit = getProfiles(image, tau,melLabel, nPoly=2)
-    
-    # Plot values of tau & intensity ratios for each segment
-    #between edge to center
-
-    maxInt = np.max(intFit,axis=1)
-    maxTau = np.max(tauFit,axis=1)
-    ratioInt = intFit[:,0]/maxInt
-    ratioTau = tauFit[:,-1]/tauFit[:,0]
-
-
-    #Set a threshold for distinguishing Melanin from Melanolipofuscins
-    # this threshold has been optimized based on the tested data sets
-    thrTauRatio = 1.15
-
-    # according the criteria classify ML clusters from M
-    melFitClass = separateMLfromM(tauFit, thrTauRatio=thrTauRatio)
-    
-    
-    #Combine L & ML classification
-    # & Plotting
-
-    melFitImage = myClassToImage(melFitClass,melLabel_noex)
-    lipFitImage = (lipLabel>0)*GrainId.name['L']
-
-    # add L M and ML together in one image
-    allFitImage = np.max(np.array([melFitImage, lipFitImage]), axis=0)
-    
-    # create a visual image based on the 'not' expand segmentation, for better visualization
-    # borders are added to see the segments clearly 
-    #visual_classImage = allFitImage + (borders_noex * 4)
-    visual_classImage = allFitImage.copy()
-    visual_classImage[borders_noex] = 4   
-
-    return allFitImage, visual_classImage, Overview_map
 
 def select_data_toshow(options_data):
 
@@ -775,3 +698,95 @@ def select_data_toshow2(options_data, ints_maps, tau2_maps_arr, Classified_visIm
     tk.Button(btn_frame, text="Close", command=on_close).pack(side="left", padx=5)
     
     return ClassifiedImgs, Classified_visImgs
+
+
+def Classi4RPE(tau, image):
+    H, xEdge, yEdge, binNumber = getTauIntensityHistogram(tau, image)
+        
+    tau_thresh = (np.percentile(tau[tau>0], 15)) +12
+
+    #get mask for M and L 
+
+    lipImage = getTauRangeImage(image,tau, tauRange=[tau_thresh+1,tau.max()])
+
+    lipBinary = getMask(lipImage)
+
+    melImage = getTauRangeImage(image,tau, tauRange=[0, tau_thresh])
+
+    melBinary = getMask(melImage)
+    
+    # segmentation of granules (long lifetimes and shortlifetimes)
+
+    # By seeded water shedding
+    # expansion was optimized based on the tested data sets (to reasonably matching the exact size of the granules)
+
+    melLabel = seeded_water_shed(melImage*melBinary, min_distance = 7, expansion=2)
+    lipLabel = seeded_water_shed(lipImage*lipBinary, min_distance = 3, expansion = 1)
+
+
+
+    max_M = melLabel.max()
+    lipLabel_shifted = np.where(lipLabel > 0, lipLabel + max_M, 0)  
+    Overview_map = np.maximum(melLabel, lipLabel_shifted)
+
+    M_class = np.zeros((melLabel.max()),dtype=int) +4
+
+    # segmented image of the all segments without expansion
+
+    melLabel_noex = seeded_water_shed(melImage*melBinary, min_distance = 7, expansion=0)
+    lipLabel_noex = seeded_water_shed(lipImage*lipBinary, min_distance = 3, expansion = 1)
+
+    max_M_noex = melLabel_noex.max()
+    lipLabel_shifted_noex = np.where(lipLabel_noex > 0, lipLabel_noex + max_M_noex, 0)  
+
+
+
+    segments_noex = np.maximum(melLabel_noex, lipLabel_shifted_noex)
+    borders_noex = (find_boundaries(segments_noex, mode='outer'))
+
+
+
+    # Get intensity/tau profiles of the short lifetime granules (Mlanolipofuscins / Melanin)
+    #Apply tau fitting for each granule(segment) and plot the profile
+
+    radius, intFit, tauFit = getProfiles(image, tau,melLabel, nPoly=2)
+
+
+    # Plot values of tau & intensity ratios for each segment
+    #between edge to center
+
+    maxInt = np.max(intFit,axis=1)
+    maxTau = np.max(tauFit,axis=1)
+    ratioInt = intFit[:,0]/maxInt
+    ratioTau = tauFit[:,-1]/tauFit[:,0]
+
+
+    #Set a threshold for distinguishing Melanin from Melanolipofuscins
+    # this threshold has been optimized based on the tested data sets
+    thrTauRatio = 1.15
+
+    melFitClass = separateMLfromM(tauFit, thrTauRatio=thrTauRatio)
+
+    # Combine L & ML classification
+    # & Plotting
+
+    melFitImage = myClassToImage(melFitClass,melLabel)
+    lipFitImage = (lipLabel>0)*GrainId.name['L']
+
+    # add L M and ML together in one image
+    #allFitImage = np.max(np.array([melFitImage, lipFitImage]), axis=0)
+    allFitImage = np.zeros_like(Overview_map)
+    allFitImage[melFitImage == 2] = 2
+    allFitImage[melFitImage == 3] = 3
+    allFitImage[lipFitImage == 1] = 1
+
+        
+    #viewer.add_labels(allFitImage, colormap=GrainId.colorNapari)
+
+    # create a visual image based on the 'not' expand segmentation, for better visualization
+    # borders are added to see the segments clearly 
+    visual_classImage = allFitImage + (borders_noex * 4)
+    
+    
+
+    return allFitImage, visual_classImage, Overview_map

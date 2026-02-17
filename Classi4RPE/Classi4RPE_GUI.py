@@ -105,10 +105,10 @@ def save_ex():
                                  index=np.arange(1, seg_img.max()+1))
         
         
-        meanT1 = ndimage.mean(tau1_maps_arr, labels=seg_img,
+        meanT1 = ndimage.mean(tau1_maps_arr[d, :, :], labels=seg_img,
                          index=np.arange(1, seg_img.max()+1))
         
-        meanT2 = ndimage.mean(tau2_maps_arr, labels=seg_img,
+        meanT2 = ndimage.mean(tau2_maps_arr[d, :, :], labels=seg_img,
                          index=np.arange(1, seg_img.max()+1))
 
         
@@ -398,6 +398,7 @@ listbox = tk.Listbox(root)
 listbox.pack(fill="both", expand=True, padx=10, pady=10)
 
 root.mainloop()
+
 
 
 

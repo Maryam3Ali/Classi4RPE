@@ -112,8 +112,8 @@ def save_ex():
                          index=np.arange(1, seg_img.max()+1))
 
         
-        photons_ch1 = ndimage.sum(Sdts_sum1[d, :, :], seg_img, index=labels)
-        photons_ch2 = ndimage.sum(Sdts_sum2[d, :, :], seg_img, index=labels)
+        photons_ch1 = ndimage.sum(Sdts_sum1[d, :, :][::-1,:], seg_img, index=labels)
+        photons_ch2 = ndimage.sum(Sdts_sum2[d, :, :][::-1,:], seg_img, index=labels)
         
         data_ID = np.full((no_pixels.shape), str(data_names[d]))
         
@@ -398,6 +398,7 @@ listbox = tk.Listbox(root)
 listbox.pack(fill="both", expand=True, padx=10, pady=10)
 
 root.mainloop()
+
 
 
 

@@ -318,8 +318,8 @@ for i in (np.unique(Overview_map)[1:]):
     mean_tau2 = np.mean(Lifetau2)
     mean_tau_ch2.append(mean_tau2) 
     #number of photons per granule
-    photons_ch1 = np.sum((np.sum(sdt_d[0, :, :, :], axis = 2))[segment])
-    photons_ch2 = np.sum((np.sum(sdt_d[1, :, :, :], axis = 2))[segment])
+    photons_ch1 = np.sum((np.sum(sdt_d[0, :, :, :][::-1,:], axis = 2))[segment])
+    photons_ch2 = np.sum((np.sum(sdt_d[1, :, :, :][::-1,:], axis = 2))[segment])
     no_photons1.append(photons_ch1)
     no_photons2.append(photons_ch2)
 

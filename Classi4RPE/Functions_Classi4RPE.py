@@ -704,8 +704,13 @@ def select_data_toshow2(options_data, ints_maps, tau2_maps_arr, Classified_visIm
 
 def Classi4RPE(tau, image):
     H, xEdge, yEdge, binNumber = getTauIntensityHistogram(tau, image)
+
+    ostu_int = Intensity_threshold(image)
+    tau[tau<0] = 0
+    tau[image < ostu_int] = 0
+    tau_thresh = LifeTimeThresh(tau_img = tau) 
         
-    tau_thresh = (np.percentile(tau[tau>0], 15)) +12
+    #tau_thresh = (np.percentile(tau[tau>0], 15)) +12
 
     #get mask for M and L 
 

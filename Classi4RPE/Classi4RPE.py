@@ -106,8 +106,25 @@ H, xEdge, yEdge, binNumber = getTauIntensityHistogram(image,tau2)
 
 
 tau = np.nan_to_num(tau2) 
-tau1 = np.nan_to_num(tau1)    
-tau_thresh = (np.percentile(tau[tau>0], 15)) +12
+tau1 = np.nan_to_num(tau1)   
+
+#remove intensity noise signals (set a threshold)
+#ostu_int = threshold_otsu(image)
+ostu_int = Intensity_threshold(image)
+
+
+#remove pixels from tau image based on the intensity threshold
+tau[tau<0] = 0
+tau[image < ostu_int] = 0
+
+
+# Setting a threshold to distinguish between long/short lifetime granules
+# by GMM model
+
+
+#tau_thresh = (np.percentile(tau[tau>0], 15)) +12
+tau_thresh = LifeTimeThresh(tau_img = tau) 
+
 
 #get mask for M and L 
 

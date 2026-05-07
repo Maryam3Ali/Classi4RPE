@@ -31,6 +31,8 @@ from skimage.segmentation import relabel_sequential
 import tkinter as tk
 from tkinterdnd2 import TkinterDnD, DND_FILES
 from skimage.segmentation import find_boundaries
+from scipy.ndimage import gaussian_filter1d
+from sklearn.mixture import GaussianMixture
 
 
 
@@ -790,3 +792,73 @@ def Classi4RPE(tau, image):
     
 
     return allFitImage, visual_classImage, Overview_map
+
+
+
+
+def Intensity_threshold(image):
+    
+    vals = image.ravel()
+    
+    hist, edges = np.histogram(vals, bins=256)
+    centers = 0.5 * (edges[:-1] + edges[1:])
+    
+    peak_idx = np.argmax(hist) 
+    
+    hist_smooth = gaussian_filter1d(hist, sigma=2)
+
+    peak_height = hist_smooth[peak_idx]
+    half_max = peak_height / 2
+    
+    #calculate FWHM for the main peak (noise)
+    # left side
+    i = peak_idx
+    while i > 0 and hist_smooth[i] > half_max:
+        i -= 1
+    left_idx = i
+    
+    # right side
+    i = peak_idx
+    while i < len(hist_smooth)-1 and hist_smooth[i] > half_max:
+        i += 1
+    right_idx = i
+    
+    width = centers[right_idx] - centers[left_idx]
+
+    return width
+
+
+def LifeTimeThresh(tau_img):
+    lifeT = tau_img.reshape(65536)
+    gmm = GaussianMixture(n_components=3).fit(lifeT.reshape(-1, 1))
+
+    labels = gmm.predict(lifeT.reshape(-1, 1))
+    means = gmm.means_.flatten()
+    stds = np.sqrt(gmm.covariances_).flatten()
+
+    # sort means
+    order_mean = np.argsort(means)
+    low_m, mid_m, high_m = order_mean
+
+    #sort stds
+    order_std = np.argsort(stds)
+    low_s, mid_s, high_s = order_std
+
+    if stds[low_s] < 0.5:
+        low_std = stds[mid_s]
+    else:
+        low_std = low_std
+        
+
+    k = 0.25
+
+
+    if means[low_m] == 0:
+        #gthresh = means[mid_m] - 15
+        gthresh = means[mid_m] - (k * low_std)
+        
+        
+    else:
+        gthresh = means[low_m] + (k * low_std)
+        
+    return gthresh

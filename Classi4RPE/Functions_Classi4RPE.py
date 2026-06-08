@@ -852,7 +852,7 @@ def LifeTimeThresh(tau_img):
     if stds[low_s] < 0.5:
         low_std = stds[mid_s]
     else:
-        low_std = low_std
+        low_std = stds[low_s]
         
 
     k = 0.25

@@ -20,6 +20,7 @@ Classi4RPE_GUI: is a fully simple GUI for importing data files and process them,
 Imported data should contain: Intensity image, fitting ascii files for lifetime, and sdt data. 
 
 tested data includes an example of tested data.
+other data sets, which have been used to set the parameters are published on: https://doi.org/10.5281/zenodo.20702171 
 
 This code (including the setted parameters) has been tested on FLIM data sets from University Hospital Jena, Experimental Ophthalmology Group using Becker
 & Hickl GmbH.

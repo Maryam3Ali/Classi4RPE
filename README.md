@@ -5,7 +5,7 @@ Classi4RPE is a computational program to segment and classify the granules of Re
 this classification is based on the Fluorescence lifetime measurements
  
 Created in 2025
-Wrtitten by: Ondrej Stranik, Maryam Ali, Rainer Heintzmann
+Wrtitten by: Maryam Ali, Ondrej Stranik,  Rainer Heintzmann
 
 It can read FLIM and intensity data for RPE measurements, and:
    - segment the granules after thresholding short/long lifetimes using seeded water shedding.
@@ -18,6 +18,8 @@ It can read FLIM and intensity data for RPE measurements, and:
 
 Classi4RPE_GUI: is a fully simple GUI for importing data files and process them, allowing the user to finetune the data and change the classification.
 Imported data should contain: Intensity image, fitting ascii files for lifetime, and sdt data. 
+
+tested data includes an example of tested data.
 
 This code (including the setted parameters) has been tested on FLIM data sets from University Hospital Jena, Experimental Ophthalmology Group using Becker
 & Hickl GmbH.

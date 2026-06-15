@@ -1,1 +1,5 @@
 
+This is an example of the studied data. It includes:
+- Intensity image
+- FLIM image
+- fitting results for the FLIM image (ascii files) for both detected channels. 

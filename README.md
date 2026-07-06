@@ -6,6 +6,8 @@ this classification is based on the Fluorescence lifetime measurements
  
 Created in 2025
 Wrtitten by: Maryam Ali, Ondrej Stranik,  Rainer Heintzmann
+Used for study: Ali, M., Alhaj Ahmad, H., Alderzy, H., Hammer, M., Heintzmann, R., & Stranik, O. (2026). Segmentation and classification of retinal pigment granules in fluorescence lifetime imaging microscopy (FLIM) data (Version 1). bioRxiv. https://doi.org/10.64898/2026.06.29.735375
+
 
 It can read FLIM and intensity data for RPE measurements, and:
    - segment the granules after thresholding short/long lifetimes using seeded water shedding.

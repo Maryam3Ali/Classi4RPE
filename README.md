@@ -1,3 +1,11 @@
+# Classi4RPE Update: 6th October 2026
+
+distinguishable condition added: to segment & classify histological images and isolated granules images differently than regular RPE images. 
+This includes: 
+- adjusting the minimum distance for the segmentation.
+- adjusting the lifetime threshold accordingly. 
+
+
 # Classi4RPE
 
 

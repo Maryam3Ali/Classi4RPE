@@ -259,7 +259,15 @@ def myClassToImage(myFitClass, labelImage):
 
     return myClassFitImage
 
-def seeded_water_shed(img, min_distance = 4, expansion = 0):
+def seeded_water_shed(img, img_map, expansion = 0):
+    dis_t = ndi.distance_transform_edt(img_map)
+    size_estimation = np.percentile(dis_t, 95)
+    #for: L
+    min_distance = int(0.25 * size_estimation)
+    #for: M/ML
+    #min_distance = int(1 * size_estimation)
+    print(min_distance)
+    
     d1 = gaussian_filter(img, 1.6)
     d2 = gaussian_filter(img, 3.0)
     dog = d1 - d2
@@ -285,6 +293,7 @@ def seeded_water_shed(img, min_distance = 4, expansion = 0):
     
     return expand_wt
 
+    
 def sensitivity_specificity(y_true, y_pred, labels=None):
     cm = confusion_matrix(y_true, y_pred, labels=labels)
     results = {}
@@ -708,7 +717,7 @@ def Classi4RPE(tau, image):
     ostu_int = Intensity_threshold(image)
     tau[tau<0] = 0
     tau[image < ostu_int] = 0
-    tau_thresh = LifeTimeThresh(tau_img = tau) 
+    tau_thresh = LifeTimeThresh(tau_img = tau, img_map = image) 
         
     #tau_thresh = (np.percentile(tau[tau>0], 15)) +12
 
@@ -727,8 +736,8 @@ def Classi4RPE(tau, image):
     # By seeded water shedding
     # expansion was optimized based on the tested data sets (to reasonably matching the exact size of the granules)
 
-    melLabel = seeded_water_shed(melImage*melBinary, min_distance = 7, expansion=2)
-    lipLabel = seeded_water_shed(lipImage*lipBinary, min_distance = 3, expansion = 1)
+    melLabel = seeded_water_shed(melImage*melBinary, img_map = melImage, expansion=2)
+    lipLabel= seeded_water_shed(lipImage*lipBinary, img_map = lipImage, expansion = 1)
 
 
 
@@ -739,9 +748,9 @@ def Classi4RPE(tau, image):
     M_class = np.zeros((melLabel.max()),dtype=int) +4
 
     # segmented image of the all segments without expansion
-
-    melLabel_noex = seeded_water_shed(melImage*melBinary, min_distance = 7, expansion=0)
-    lipLabel_noex = seeded_water_shed(lipImage*lipBinary, min_distance = 3, expansion = 1)
+    
+    melLabel_noex = seeded_water_shed(melImage*melBinary, img_map = melImage, expansion=0)
+    lipLabel_noex = seeded_water_shed(lipImage*lipBinary, img_map = lipImage, expansion = 1)
 
     max_M_noex = melLabel_noex.max()
     lipLabel_shifted_noex = np.where(lipLabel_noex > 0, lipLabel_noex + max_M_noex, 0)  
@@ -833,7 +842,7 @@ def Intensity_threshold(image):
     return width
 
 
-def LifeTimeThresh(tau_img):
+def LifeTimeThresh(tau_img, img_map):
     lifeT = tau_img.reshape(65536)
     gmm = GaussianMixture(n_components=3).fit(lifeT.reshape(-1, 1))
 
@@ -852,10 +861,18 @@ def LifeTimeThresh(tau_img):
     if stds[low_s] < 0.5:
         low_std = stds[mid_s]
     else:
-        low_std = stds[low_s]
-        
+        low_std = low_std
+    
 
-    k = 0.25
+    dis_t = ndi.distance_transform_edt(img_map)
+    size_estimation = np.percentile(dis_t, 95)
+    min_distance = int(0.3 * size_estimation)
+
+
+    if min_distance >= 1:
+        k = 0.25
+    if min_distance < 1:
+        k = 1.3
 
 
     if means[low_m] == 0:
